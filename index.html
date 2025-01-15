@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>License Plate Management</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.2/axios.min.js"></script>
+    <style>
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            background-color: #f9f9f9;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: #444;
+        }
+
+        .plate-form, .plate-list {
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            padding: 20px;
+            transition: transform 0.3s;
+        }
+
+        .plate-form:hover, .plate-list:hover {
+            transform: scale(1.01);
+        }
+
+        .form-group label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            border-color: #007BFF;
+            outline: none;
+        }
+
+        button {
+            background-color: #007BFF;
+            color: #fff;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .plate-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            background-color: #fff;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s;
+        }
+
+        .plate-item:hover {
+            background-color: #f1f1f1;
+        }
+
+        .plate-details strong {
+            display: block;
+            color: #555;
+        }
+
+        .error {
+            color: #d9534f;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .success {
+            color: #5cb85c;
+            font-weight: bold;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>License Plate Management</h1>
+    
+    <div class="plate-form">
+        <h2>Add New Plate</h2>
+        <form id="addPlateForm">
+            <div class="form-group">
+                <label for="plateNumber">Plate Number:</label>
+                <input type="text" id="plateNumber" required>
+            </div>
+            <div class="form-group">
+                <label for="ownerName">Owner Name:</label>
+                <input type="text" id="ownerName" required>
+            </div>
+            <div class="form-group">
+                <label for="cin">CIN:</label>
+                <input type="text" id="cin" required>
+            </div>
+            <div class="form-group">
+                <label for="notes">Notes:</label>
+                <input type="text" id="notes">
+            </div>
+            <button type="submit">Add Plate</button>
+        </form>
+        <div id="message"></div>
+    </div>
+
+    <div class="plate-list" id="plateList">
+        <h2>Existing Plates</h2>
+        <!-- Plates will be loaded here -->
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+
+        // Function to load all plates
+        async function loadPlates() {
+            try {
+                const response = await axios.get(`${API_URL}/plates/`);
+                const plateList = document.getElementById('plateList');
+                const plates = response.data;
+                
+                let html = '<h2>Existing Plates</h2>';
+                plates.forEach(plate => {
+                    html += `
+                        <div class="plate-item" id="plate-${plate.id}">
+                            <div class="plate-details">
+                                <strong>Plate: ${plate.plate_number}</strong><br>
+                                <strong>Owner: ${plate.owner_name}</strong><br>
+                                <strong>CIN: ${plate.cin}</strong>
+                                ${plate.notes ? `<br><small>Notes: ${plate.notes}</small>` : ''}
+                            </div>
+                            <div>
+                                <button onclick="editPlate(${plate.id}, '${plate.plate_number}', '${plate.owner_name}', '${plate.cin}', '${plate.notes || ''}')">Edit</button>
+                                <button onclick="deletePlate(${plate.id})">Delete</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                plateList.innerHTML = html;
+            } catch (error) {
+                showMessage('Error loading plates', true);
+            }
+        }
+
+        // Function to add a new plate
+        async function addPlate(event) {
+            event.preventDefault();
+            const plateNumber = document.getElementById('plateNumber').value;
+            const ownerName = document.getElementById('ownerName').value;
+            const cin = document.getElementById('cin').value;
+            const notes = document.getElementById('notes').value;
+
+            try {
+                await axios.post(`${API_URL}/plates/`, {
+                    plate_number: plateNumber,
+                    owner_name: ownerName,
+                    cin: cin,
+                    notes: notes
+                });
+                showMessage('Plate added successfully');
+                document.getElementById('addPlateForm').reset();
+                loadPlates();
+            } catch (error) {
+                showMessage('Error adding plate', true);
+            }
+        }
+
+        // Function to edit a plate
+        async function editPlate(id, plateNumber, ownerName, cin, notes) {
+            const newPlateNumber = prompt('Enter new plate number:', plateNumber);
+            const newOwnerName = prompt('Enter new owner name:', ownerName);
+            const newCin = prompt('Enter new CIN:', cin);
+            const newNotes = prompt('Enter new notes:', notes);
+            
+            if (newPlateNumber === null) return;
+
+            try {
+                await axios.put(`${API_URL}/plates/${id}`, {
+                    plate_number: newPlateNumber,
+                    owner_name: newOwnerName,
+                    cin: newCin,
+                    notes: newNotes
+                });
+                showMessage('Plate updated successfully');
+                loadPlates();
+            } catch (error) {
+                showMessage('Error updating plate', true);
+            }
+        }
+
+        // Function to delete a plate
+        async function deletePlate(id) {
+            if (!confirm('Are you sure you want to delete this plate?')) return;
+
+            try {
+                await axios.delete(`${API_URL}/plates/${id}`);
+                showMessage('Plate deleted successfully');
+                loadPlates();
+            } catch (error) {
+                showMessage('Error deleting plate', true);
+            }
+        }
+
+        // Function to show messages
+        function showMessage(message, isError = false) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = message;
+            messageDiv.className = isError ? 'error' : 'success';
+            setTimeout(() => {
+                messageDiv.textContent = '';
+                messageDiv.className = '';
+            }, 3000);
+        }
+
+        // Event listeners
+        document.getElementById('addPlateForm').addEventListener('submit', addPlate);
+
+        // Load plates when page loads
+        loadPlates();
+    </script>
+</body>
+</html>
